@@ -22,84 +22,55 @@ import 'features/security/presentation/security_screen.dart';
 import 'features/qr/presentation/qr_scan_screen.dart';
 import 'features/qr/presentation/qr_share_screen.dart';
 import 'features/settings/presentation/settings_screen.dart';
+import 'features/settings/presentation/biometric_settings_screen.dart';
 import 'features/profile/presentation/profile_screen.dart';
 import 'features/wifi/presentation/wifi_screen.dart';
 
 final _router = GoRouter(
   initialLocation: Routes.splash,
   routes: [
-    GoRoute(
-      path: Routes.splash,
-      builder: (_, __) => const SplashScreen(),
-    ),
-    GoRoute(
-      path: Routes.onboarding,
-      builder: (_, __) => const OnboardingScreen(),
-    ),
-    GoRoute(
-      path: Routes.login,
-      builder: (_, __) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: Routes.register,
-      builder: (_, __) => const RegisterScreen(),
-    ),
-    GoRoute(
-      path: Routes.lock,
-      builder: (_, __) => const LockScreen(),
-    ),
+    // ── Auth / onboarding (no shell) ─────────────────────────────────────────
+    GoRoute(path: Routes.splash,     builder: (_, __) => const SplashScreen()),
+    GoRoute(path: Routes.onboarding, builder: (_, __) => const OnboardingScreen()),
+    GoRoute(path: Routes.login,      builder: (_, __) => const LoginScreen()),
+    GoRoute(path: Routes.register,   builder: (_, __) => const RegisterScreen()),
+    GoRoute(path: Routes.lock,       builder: (_, __) => const LockScreen()),
+
+    // ── Main shell (bottom nav) ──────────────────────────────────────────────
+    // All routes inside ShellRoute share the same Navigator instance.
+    // context.go() is used between them; context.push() pushes on top.
     ShellRoute(
       builder: (context, state, child) => _MainShell(child: child),
       routes: [
-        GoRoute(
-          path: Routes.home,
-          builder: (_, __) => const HomeScreen(),
-        ),
-        GoRoute(
-          path: Routes.security,
-          builder: (_, __) => const SecurityScreen(),
-        ),
-        GoRoute(
-          path: Routes.settings,
-          builder: (_, __) => const SettingsScreen(),
-        ),
+        GoRoute(path: Routes.home,     builder: (_, __) => const HomeScreen()),
+        GoRoute(path: Routes.security, builder: (_, __) => const SecurityScreen()),
+        GoRoute(path: Routes.settings, builder: (_, __) => const SettingsScreen()),
+        // Profile is now INSIDE the shell so context.push(settings) works.
+        GoRoute(path: Routes.profile,  builder: (_, __) => const ProfileScreen()),
       ],
     ),
+
+    // ── Fullscreen routes (no shell, pushed on top) ──────────────────────────
     GoRoute(
       path: Routes.detail,
       builder: (_, state) =>
           PasswordDetailScreen(entry: state.extra as VaultEntry),
     ),
-    GoRoute(
-      path: Routes.addPassword,
-      builder: (_, __) => const AddPasswordScreen(),
-    ),
+    GoRoute(path: Routes.addPassword,  builder: (_, __) => const AddPasswordScreen()),
     GoRoute(
       path: Routes.editPassword,
       builder: (_, state) =>
           EditPasswordScreen(entry: state.extra as VaultEntry),
     ),
-    GoRoute(
-      path: Routes.generator,
-      builder: (_, __) => const GeneratorScreen(),
-    ),
-    GoRoute(
-      path: Routes.qrScan,
-      builder: (_, __) => const QrScanScreen(),
-    ),
+    GoRoute(path: Routes.generator,    builder: (_, __) => const GeneratorScreen()),
+    GoRoute(path: Routes.qrScan,       builder: (_, __) => const QrScanScreen()),
     GoRoute(
       path: Routes.qrShare,
       builder: (_, state) =>
           QrShareScreen(entry: state.extra as VaultEntry),
     ),
-    GoRoute(
-      path: Routes.profile,
-      builder: (_, __) => const ProfileScreen(),
-    ),
-    GoRoute(
-      path: Routes.wifi,
-      builder: (_, __) => const WifiScreen(),
-    ),
+    GoRoute(path: Routes.wifi,              builder: (_, __) => const WifiScreen()),
+    GoRoute(path: Routes.biometricSettings, builder: (_, __) => const BiometricSettingsScreen()),
   ],
 );
 

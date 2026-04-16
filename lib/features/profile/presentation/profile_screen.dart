@@ -119,14 +119,24 @@ class ProfileScreen extends ConsumerWidget {
                       leading: const Icon(Symbols.settings),
                       title: const Text('Settings'),
                       trailing: const Icon(Symbols.chevron_right),
-                      onTap: () => context.push(Routes.settings),
+                      // Settings is a shell sibling — use go() not push()
+                      onTap: () => context.go(Routes.settings),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Symbols.fingerprint),
+                      title: const Text('Biometric Unlock'),
+                      trailing: const Icon(Symbols.chevron_right),
+                      // biometricSettings is a fullscreen route — push() is fine
+                      onTap: () => context.push(Routes.biometricSettings),
                     ),
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Symbols.shield),
                       title: const Text('Security Dashboard'),
                       trailing: const Icon(Symbols.chevron_right),
-                      onTap: () => context.push(Routes.security),
+                      // Security is a shell sibling — use go() not push()
+                      onTap: () => context.go(Routes.security),
                     ),
                   ],
                 ),

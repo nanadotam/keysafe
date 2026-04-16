@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../crypto/crypto_service.dart';
 import '../../../crypto/key_store.dart';
+import '../../vault/data/vault_local_db.dart';
 
 class AuthRepository {
   final Dio _dio;
@@ -100,6 +101,8 @@ class AuthRepository {
         );
       }
     } catch (_) {}
+    // Wipe all local vault data (SQLite + secure-storage snapshot).
+    await VaultLocalDb.clearAll();
     await KeyStore.clearAll();
   }
 

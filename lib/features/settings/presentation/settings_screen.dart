@@ -36,17 +36,42 @@ class SettingsScreen extends ConsumerWidget {
             Card(
               child: Column(
                 children: [
-                  SwitchListTile(
-                    secondary: const Icon(Symbols.fingerprint),
+                  ListTile(
+                    leading: Icon(
+                      Symbols.fingerprint,
+                      color: biometric
+                          ? theme.colorScheme.primary
+                          : null,
+                    ),
                     title: const Text('Biometric Unlock'),
-                    subtitle: const Text('Use fingerprint or face to unlock'),
-                    value: biometric,
-                    onChanged: (v) async {
-                      HapticFeedback.selectionClick();
-                      await ref
-                          .read(appSettingsProvider.notifier)
-                          .setBiometricUnlockEnabled(v);
-                    },
+                    subtitle: Text(
+                      biometric ? 'Enabled — tap to manage' : 'Disabled — tap to enable',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (biometric)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'ON',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        const Icon(Symbols.chevron_right),
+                      ],
+                    ),
+                    onTap: () => context.push(Routes.biometricSettings),
                   ),
                   const Divider(height: 1),
                   SwitchListTile(

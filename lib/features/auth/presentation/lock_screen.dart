@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../providers/auth_provider.dart';
 import '../domain/auth_state.dart';
 import '../../../core/constants/routes.dart';
+import '../../../core/services/biometric_service.dart';
 import '../../../core/settings/app_settings_provider.dart';
 import '../../../crypto/key_store.dart';
 
@@ -23,7 +23,6 @@ class LockScreen extends ConsumerStatefulWidget {
 
 class _LockScreenState extends ConsumerState<LockScreen> {
   final _passCtrl  = TextEditingController();
-  final _localAuth = LocalAuthentication();
   final _formKey   = GlobalKey<FormState>();
 
   String? _displayName;
@@ -58,22 +57,17 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   Future<void> _tryBiometric() async {
     try {
-      final canCheck = await _localAuth.canCheckBiometrics;
-      final isSupported = await _localAuth.isDeviceSupported();
-      if (!canCheck && !isSupported) {
+      final status = await ref.read(biometricServiceProvider).getStatus();
+      if (!status.isSupported) {
         // Biometrics unavailable — fall back to password field.
         if (mounted) setState(() => _showPassField = true);
         return;
       }
-      final authenticated = await _localAuth.authenticate(
-        localizedReason: 'Unlock your KeySafe vault',
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          // biometricOnly = false → also allows device PIN/pattern/password
-          // This matches the user's request of using the "on-device lock".
-          biometricOnly: false,
-        ),
-      );
+      final authenticated = await ref
+          .read(biometricServiceProvider)
+          .authenticate(
+            localizedReason: 'Unlock your KeySafe vault',
+          );
       if (!mounted) return;
       if (authenticated) {
         HapticFeedback.mediumImpact();

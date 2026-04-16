@@ -1,31 +1,113 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../data/vault_repository.dart';
 import '../domain/vault_entry.dart';
+import '../data/vault_local_db.dart';
 import '../../auth/providers/auth_provider.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Offline-first vault provider
+//
+// Load strategy (mirrors the user's spec):
+//
+//  1. IMMEDIATELY serve from SQLite local cache (fast, works offline).
+//  2. If device is online → fetch from server in the background and update
+//     the in-memory state + refresh local cache.
+//  3. On reconnect after being offline → auto-flush pending ops then refresh.
+//
+// The AES key (from Android Keystore / iOS Keychain) is in memory after login,
+// so decryption always works offline without any extra prompts.
+// ─────────────────────────────────────────────────────────────────────────────
 
 final vaultRepositoryProvider = Provider<VaultRepository>(
   (ref) => VaultRepository(ref.watch(dioProvider)),
 );
 
 class VaultNotifier extends StateNotifier<AsyncValue<List<VaultEntry>>> {
+  VaultNotifier(this._repo) : super(const AsyncValue.loading()) {
+    // Start connectivity listener for auto-flush + background refresh.
+    _connectivitySub = Connectivity()
+        .onConnectivityChanged
+        .listen(_onConnectivityChanged);
+  }
+
   final VaultRepository _repo;
   String _categoryFilter = 'all';
-  String _searchQuery = '';
+  String _searchQuery    = '';
+  bool   _backgrounding  = false;
 
-  VaultNotifier(this._repo) : super(const AsyncValue.loading());
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
+  }
+
+  // ── Load (offline-first) ──────────────────────────────────────────────────
+
+  /// Loads the vault using a two-phase strategy:
+  ///   Phase 1: Immediately serve from the local SQLite cache (instant UX).
+  ///   Phase 2: Refresh from server in the background if online.
   Future<void> load() async {
-    state = const AsyncValue.loading();
+    // Phase 1 — show cached data immediately (no network, no wait).
+    final cached = await VaultLocalDb.getAll();
+    if (cached.isNotEmpty) {
+      state = AsyncValue.data(cached);
+    } else {
+      state = const AsyncValue.loading();
+    }
+
+    // Phase 2 — background refresh from server.
+    await _refreshFromServer(showLoadingIfEmpty: cached.isEmpty);
+  }
+
+  /// Silent background refresh — does NOT set loading state, just quietly
+  /// updates if new data arrives.  Called by load() and connectivity events.
+  Future<void> _refreshFromServer({bool showLoadingIfEmpty = false}) async {
+    if (_backgrounding) return;
+    _backgrounding = true;
+
     try {
-      final entries = await _repo.fetchAll();
-      state = AsyncValue.data(entries);
+      final connectivity = await Connectivity().checkConnectivity();
+      if (connectivity.contains(ConnectivityResult.none)) return;
+
+      // Flush any pending offline ops before downloading fresh data.
+      try {
+        await _repo.flushPendingOps();
+      } catch (_) {}
+
+      final fresh = await _repo.fetchAll();
+      if (mounted) {
+        state = AsyncValue.data(fresh);
+      }
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // Only surface the error if we have nothing cached to show.
+      if (state.valueOrNull?.isEmpty ?? true) {
+        if (mounted) state = AsyncValue.error(e, st);
+      }
+      // Otherwise silently swallow — user still sees their cached data.
+    } finally {
+      _backgrounding = false;
     }
   }
 
-  Future<void> refresh() async => load();
+  Future<void> refresh() async => _refreshFromServer();
+
+  // ── Connectivity auto-refresh ─────────────────────────────────────────────
+
+  void _onConnectivityChanged(List<ConnectivityResult> results) {
+    final isOnline = !results.contains(ConnectivityResult.none);
+    if (isOnline) {
+      // Came back online — flush pending ops and pull fresh data.
+      _refreshFromServer();
+    }
+  }
+
+  // ── CRUD (unchanged, already offline-first in VaultRepository) ───────────
 
   Future<void> create({
     required String name,
@@ -38,16 +120,16 @@ class VaultNotifier extends StateNotifier<AsyncValue<List<VaultEntry>>> {
     final current = state.valueOrNull ?? [];
     try {
       final entry = await _repo.create(
-        name: name,
-        username: username,
+        name:          name,
+        username:      username,
         plainPassword: plainPassword,
-        url: url,
-        notes: notes,
-        category: category,
+        url:           url,
+        notes:         notes,
+        category:      category,
       );
-      state = AsyncValue.data([...current, entry]);
+      if (mounted) state = AsyncValue.data([...current, entry]);
     } catch (e, st) {
-      state = AsyncValue.data(current);
+      if (mounted) state = AsyncValue.data(current);
       Error.throwWithStackTrace(e, st);
     }
   }
@@ -67,51 +149,50 @@ class VaultNotifier extends StateNotifier<AsyncValue<List<VaultEntry>>> {
     final current = state.valueOrNull ?? [];
     try {
       final updated = await _repo.update(
-        id: id,
-        name: name,
-        username: username,
-        plainPassword: plainPassword,
-        url: url,
-        notes: notes,
-        category: category,
-        existingEncrypted: existingEncrypted,
-        existingStrength: existingStrength,
-        existingCreatedAt: existingCreatedAt,
+        id:                  id,
+        name:                name,
+        username:            username,
+        plainPassword:       plainPassword,
+        url:                 url,
+        notes:               notes,
+        category:            category,
+        existingEncrypted:   existingEncrypted,
+        existingStrength:    existingStrength,
+        existingCreatedAt:   existingCreatedAt,
       );
-      state = AsyncValue.data(
-        current.map((e) => e.id == id ? updated : e).toList(),
-      );
+      if (mounted) {
+        state = AsyncValue.data(
+          current.map((e) => e.id == id ? updated : e).toList(),
+        );
+      }
     } catch (e, st) {
-      state = AsyncValue.data(current);
+      if (mounted) state = AsyncValue.data(current);
       Error.throwWithStackTrace(e, st);
     }
   }
 
   Future<void> delete(String id) async {
     final current = state.valueOrNull ?? [];
-    state = AsyncValue.data(current.where((e) => e.id != id).toList());
+    if (mounted) {
+      state = AsyncValue.data(current.where((e) => e.id != id).toList());
+    }
     try {
       await _repo.delete(id);
     } catch (e, st) {
-      state = AsyncValue.data(current);
+      if (mounted) state = AsyncValue.data(current);
       Error.throwWithStackTrace(e, st);
     }
   }
 
-  void setFilter(String category) {
-    _categoryFilter = category;
-  }
+  // ── Filtering / search (in-memory, no re-fetch) ───────────────────────────
 
-  void setSearch(String query) {
-    _searchQuery = query;
-  }
+  void setFilter(String category) => _categoryFilter = category;
+  void setSearch(String query)    => _searchQuery    = query;
 
   List<VaultEntry> getFiltered(List<VaultEntry> all) {
     var filtered = all;
     if (_categoryFilter != 'all') {
-      filtered = filtered
-          .where((e) => e.category == _categoryFilter)
-          .toList();
+      filtered = filtered.where((e) => e.category == _categoryFilter).toList();
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -126,14 +207,16 @@ class VaultNotifier extends StateNotifier<AsyncValue<List<VaultEntry>>> {
     return filtered;
   }
 
-  Future<void> flushPendingOps() async {
-    final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity.contains(ConnectivityResult.none)) return;
-    await _repo.flushPendingOps();
-  }
+  /// Manually flush pending operations (called from Settings).
+  Future<void> flushPendingOps() => _repo.flushPendingOps();
 }
 
 final vaultProvider =
     StateNotifierProvider<VaultNotifier, AsyncValue<List<VaultEntry>>>(
-  (ref) => VaultNotifier(ref.watch(vaultRepositoryProvider)),
+  (ref) {
+    final notifier = VaultNotifier(ref.watch(vaultRepositoryProvider));
+    // Auto-load as soon as the provider is created.
+    notifier.load();
+    return notifier;
+  },
 );
