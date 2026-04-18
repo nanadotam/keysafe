@@ -21,7 +21,8 @@ class LockScreen extends ConsumerStatefulWidget {
   ConsumerState<LockScreen> createState() => _LockScreenState();
 }
 
-class _LockScreenState extends ConsumerState<LockScreen> {
+class _LockScreenState extends ConsumerState<LockScreen>
+    with SingleTickerProviderStateMixin {
   final _passCtrl  = TextEditingController();
   final _formKey   = GlobalKey<FormState>();
 
@@ -30,15 +31,42 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   bool    _showPassField  = false;
   int     _failedAttempts = 0;
   bool    _isVerifying    = false;
+  bool    _unlocking      = false;
+
+  late final AnimationController _pulseCtrl;
+  late final Animation<double>   _pulseAnim;
+  int _dotCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.85, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
     _loadAndUnlock();
+  }
+
+  void _startUnlockingAnim() {
+    if (!mounted) return;
+    setState(() { _unlocking = true; _dotCount = 0; });
+    _tickDots();
+  }
+
+  void _tickDots() {
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted || !_unlocking) return;
+      setState(() => _dotCount = (_dotCount + 1) % 4);
+      _tickDots();
+    });
   }
 
   @override
   void dispose() {
+    _pulseCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
   }
@@ -71,6 +99,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       if (!mounted) return;
       if (authenticated) {
         HapticFeedback.mediumImpact();
+        _startUnlockingAnim();
         await ref.read(authProvider.notifier).unlockWithBiometrics();
       }
     } catch (_) {
@@ -109,7 +138,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
     if (computed == stored) {
       HapticFeedback.mediumImpact();
-      // Re-derive and cache AES key in memory.
+      _startUnlockingAnim();
       await ref.read(authProvider.notifier).unlockWithBiometrics();
     } else {
       HapticFeedback.heavyImpact();
@@ -170,7 +199,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     final name    = _displayName ?? 'User';
     final biometricEnabled = ref.watch(appSettingsProvider).biometricUnlockEnabled;
 
-    return Scaffold(
+    return Stack(
+      children: [
+      Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Center(
@@ -346,6 +377,69 @@ class _LockScreenState extends ConsumerState<LockScreen> {
           ),
         ),
       ),
-    );
+    ),
+
+      // ── Unlocking overlay ─────────────────────────────────────────────────
+      if (_unlocking)
+        AnimatedOpacity(
+          opacity: _unlocking ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: Container(
+            color: Colors.black.withValues(alpha: 0.92),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ScaleTransition(
+                    scale: _pulseAnim,
+                    child: Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                          width: 2.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.35),
+                            blurRadius: 28,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Symbols.lock_open,
+                        size: 42,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Unlocking your vault${'.' * _dotCount}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.white70,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: 160,
+                    child: LinearProgressIndicator(
+                      backgroundColor: Colors.white12,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+    ]);
   }
 }
