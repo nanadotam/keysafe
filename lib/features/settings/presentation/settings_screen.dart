@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_email_sender/flutter_email_sender.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +13,7 @@ import '../../vault/providers/vault_provider.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/settings/app_settings_provider.dart';
+import '../../../crypto/crypto_service.dart';
 import '../../../crypto/key_store.dart';
 import '../data/vault_export_service.dart';
 
@@ -26,7 +29,12 @@ class SettingsScreen extends ConsumerWidget {
     final darkMode = settings.themeMode == ThemeMode.dark;
     final notifications = settings.notificationsEnabled;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go(Routes.home);
+      },
+      child: Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: SafeArea(
         child: ListView(
@@ -162,7 +170,7 @@ class SettingsScreen extends ConsumerWidget {
                     leading: const Icon(Symbols.lock_reset),
                     title: const Text('Change Master Password'),
                     trailing: const Icon(Symbols.chevron_right),
-                    onTap: () {},
+                    onTap: () => _startChangeMasterPasswordFlow(context, ref),
                   ),
                   const Divider(height: 1),
                   ListTile(
@@ -170,6 +178,20 @@ class SettingsScreen extends ConsumerWidget {
                     title: const Text('Export Vault'),
                     trailing: const Icon(Symbols.chevron_right),
                     onTap: () => _startExportFlow(context, ref),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Symbols.upload),
+                    title: const Text('Import Vault (CSV)'),
+                    trailing: const Icon(Symbols.chevron_right),
+                    onTap: () => context.push(Routes.importVault),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Symbols.delete_sweep),
+                    title: const Text('Recently Deleted'),
+                    trailing: const Icon(Symbols.chevron_right),
+                    onTap: () => context.push(Routes.recentlyDeleted),
                   ),
                 ],
               ),
@@ -219,6 +241,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -379,6 +402,7 @@ class SettingsScreen extends ConsumerWidget {
       return;
     }
 
+    final masked = _maskEmail(email);
     final otp = _generateOtp();
     try {
       await FlutterEmailSender.send(
@@ -407,7 +431,8 @@ class SettingsScreen extends ConsumerWidget {
       context,
       title: 'Confirm OTP',
       message:
-          'Send the drafted email to yourself, then enter the OTP you received.',
+          'A verification code was drafted to $masked. '
+          'Send that email to yourself, then enter the OTP below.',
       confirmLabel: 'Verify OTP',
       obscureText: false,
     );
@@ -478,6 +503,143 @@ class SettingsScreen extends ConsumerWidget {
   String _generateOtp() {
     final random = Random.secure();
     return (100000 + random.nextInt(900000)).toString();
+  }
+
+  /// Returns a masked email like "na****o@gmail.com".
+  String _maskEmail(String email) {
+    final at = email.indexOf('@');
+    if (at <= 2) return email;
+    final local = email.substring(0, at);
+    final domain = email.substring(at);
+    final visible = local.length > 4 ? 2 : 1;
+    final masked = local.substring(0, visible) +
+        '*' * (local.length - visible * 2).clamp(2, 8) +
+        local.substring(local.length - visible);
+    return '$masked$domain';
+  }
+
+  Future<void> _startChangeMasterPasswordFlow(
+      BuildContext context, WidgetRef ref) async {
+    final email = await KeyStore.getUserEmail();
+    if (email == null || email.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No account email found. Log in again.')),
+      );
+      return;
+    }
+
+    final masked = _maskEmail(email);
+    final otp = _generateOtp();
+
+    // Step 1: Send OTP via email composer
+    try {
+      await FlutterEmailSender.send(
+        Email(
+          recipients: [email],
+          subject: 'KeySafe — Change Master Password OTP',
+          body: 'Your OTP to change your master password: $otp\n\n'
+              'If you did not request this, ignore this email.',
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open email composer: $e')),
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    // Step 2: User enters OTP
+    final typedOtp = await _promptForSecret(
+      context,
+      title: 'Email Verification',
+      message: 'We sent a 6-digit OTP to $masked. '
+          'Send the drafted email, then enter the OTP below.',
+      confirmLabel: 'Verify',
+      obscureText: false,
+    );
+    if (typedOtp == null || typedOtp.trim() != otp) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OTP verification failed.')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
+    // Step 3: Enter current master password
+    final currentPw = await _promptForSecret(
+      context,
+      title: 'Current Master Password',
+      message: 'Enter your current master password to confirm identity.',
+      confirmLabel: 'Confirm',
+    );
+    if (currentPw == null || currentPw.isEmpty) return;
+    if (!context.mounted) return;
+
+    // Verify current password matches stored hash
+    final userId = await KeyStore.getUserId() ?? '';
+    final expectedHash = await KeyStore.getMasterPasswordHash();
+    final actualHash = base64Encode(
+      crypto.sha256.convert(utf8.encode(currentPw + userId)).bytes,
+    );
+    if (actualHash != expectedHash) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Current password is incorrect.')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
+    // Step 4: Enter new master password
+    final newPw = await _promptForSecret(
+      context,
+      title: 'New Master Password',
+      message: 'Enter your new master password (min 8 characters).',
+      confirmLabel: 'Set Password',
+    );
+    if (newPw == null || newPw.trim().length < 8) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Password must be at least 8 characters.')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
+    // Step 5: Re-derive AES key and update stored key + hash
+    try {
+      final newKey = CryptoService.deriveKey(
+        masterPassword: newPw.trim(),
+        salt: userId,
+      );
+      await KeyStore.storeAesKey(newKey);
+
+      final newHash = base64Encode(
+        crypto.sha256.convert(utf8.encode(newPw.trim() + userId)).bytes,
+      );
+      await KeyStore.storeMasterPasswordHash(newHash);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Master password updated successfully.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update master password: $e')),
+        );
+      }
+    }
   }
 
   Future<String?> _promptForSecret(

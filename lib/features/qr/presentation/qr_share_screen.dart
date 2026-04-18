@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -55,11 +54,25 @@ class _QrShareScreenState extends State<QrShareScreen> {
     super.dispose();
   }
 
-  String get _qrData => jsonEncode({
-        'service':            widget.entry.name,
-        'username':           widget.entry.username,
-        'encrypted_password': widget.entry.encryptedPassword,
-      });
+  // Encode as a URI that KeySafe can scan and import directly.
+  // Format: keysafe://import?service=...&username=...&enc=...
+  // The `enc` parameter holds the AES-GCM encrypted password (base64).
+  // Another KeySafe user scanning this will be prompted to decrypt with
+  // their own master key — the encrypted blob can only be read by someone
+  // who knows the original vault key.
+  String get _qrData {
+    final params = Uri(
+      scheme: 'keysafe',
+      host: 'import',
+      queryParameters: {
+        'service':  widget.entry.name,
+        'username': widget.entry.username,
+        'url':      widget.entry.url,
+        'enc':      widget.entry.encryptedPassword,
+      },
+    ).toString();
+    return params;
+  }
 
   // ── Capture the QR widget as a PNG and share it as a real image ───────────
   Future<void> _shareAsImage() async {
@@ -177,7 +190,8 @@ class _QrShareScreenState extends State<QrShareScreen> {
                       const SizedBox(height: 8),
                       // Security note
                       Text(
-                        '⚠️ This QR is encrypted. The password hash is included.',
+                        '⚠️ Scan with KeySafe to import. Password is encrypted — '
+                        'only readable with the original vault key.',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.error,
                         ),

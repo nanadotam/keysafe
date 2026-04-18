@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_endpoints.dart';
+import '../../../crypto/key_store.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class UserProfile {
@@ -46,24 +47,36 @@ class ProfileRepository {
   final Dio _dio;
 
   Future<UserProfile> fetchProfile() async {
+    // Always try to get the locally stored display name as fallback.
+    final localName = await KeyStore.getDisplayName() ?? '';
+    final localEmail = await KeyStore.getUserEmail() ?? '';
+
     try {
       final response = await _dio.get(ApiEndpoints.profile);
-      return UserProfile.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw _mapError(e);
+      final data = response.data as Map<String, dynamic>;
+      // Backend may return either 'name' or 'username'
+      final apiName = (data['name'] as String?)?.trim() ??
+          (data['username'] as String?)?.trim() ??
+          localName;
+      return UserProfile.fromJson({...data, 'name': apiName});
+    } on DioException catch (_) {
+      // Offline or server error — return a minimal profile from local storage.
+      if (localEmail.isNotEmpty) {
+        return UserProfile(
+          id: '',
+          name: localName,
+          email: localEmail,
+          passwordCount: 0,
+          wifiCount: 0,
+          categoryCount: 0,
+          securityScore: 0,
+          memberSince: DateTime.now(),
+        );
+      }
+      rethrow;
     }
   }
 
-  String _mapError(DioException e) {
-    switch (e.response?.statusCode) {
-      case 401:
-        return 'Session expired. Please log in again.';
-      case 404:
-        return 'Profile not found.';
-      default:
-        return 'Failed to load profile.';
-    }
-  }
 }
 
 final profileRepositoryProvider = Provider<ProfileRepository>(

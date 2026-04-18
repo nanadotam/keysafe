@@ -25,6 +25,8 @@ import 'features/settings/presentation/settings_screen.dart';
 import 'features/settings/presentation/biometric_settings_screen.dart';
 import 'features/profile/presentation/profile_screen.dart';
 import 'features/wifi/presentation/wifi_screen.dart';
+import 'features/vault/presentation/recently_deleted_screen.dart';
+import 'features/vault/presentation/import_vault_screen.dart';
 
 final _router = GoRouter(
   initialLocation: Routes.splash,
@@ -56,7 +58,13 @@ final _router = GoRouter(
       builder: (_, state) =>
           PasswordDetailScreen(entry: state.extra as VaultEntry),
     ),
-    GoRoute(path: Routes.addPassword,  builder: (_, __) => const AddPasswordScreen()),
+    GoRoute(
+      path: Routes.addPassword,
+      builder: (_, state) {
+        final extra = state.extra as Map<String, String>?;
+        return AddPasswordScreen(prefill: extra);
+      },
+    ),
     GoRoute(
       path: Routes.editPassword,
       builder: (_, state) =>
@@ -71,6 +79,8 @@ final _router = GoRouter(
     ),
     GoRoute(path: Routes.wifi,              builder: (_, __) => const WifiScreen()),
     GoRoute(path: Routes.biometricSettings, builder: (_, __) => const BiometricSettingsScreen()),
+    GoRoute(path: Routes.recentlyDeleted,   builder: (_, __) => const RecentlyDeletedScreen()),
+    GoRoute(path: Routes.importVault,       builder: (_, __) => const ImportVaultScreen()),
   ],
 );
 

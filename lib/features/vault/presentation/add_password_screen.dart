@@ -5,9 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../providers/vault_provider.dart';
 import '../../../core/constants/routes.dart';
+import '../../../core/utils/service_suggestions.dart';
+import '../../../core/widgets/category_dropdown.dart';
 
 class AddPasswordScreen extends ConsumerStatefulWidget {
-  const AddPasswordScreen({super.key});
+  final Map<String, String>? prefill;
+  const AddPasswordScreen({super.key, this.prefill});
 
   @override
   ConsumerState<AddPasswordScreen> createState() => _AddPasswordScreenState();
@@ -24,15 +27,17 @@ class _AddPasswordScreenState extends ConsumerState<AddPasswordScreen> {
   bool _obscure = true;
   bool _saving = false;
 
-  static const _categories = [
-    'personal',
-    'social',
-    'finance',
-    'email',
-    'shopping',
-    'apps',
-    'wifi',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.prefill;
+    if (p != null) {
+      _nameCtrl.text     = p['name']     ?? '';
+      _usernameCtrl.text = p['username'] ?? '';
+      _urlCtrl.text      = p['url']      ?? '';
+      // 'enc' is ignored — user must type the actual password
+    }
+  }
 
   @override
   void dispose() {
@@ -98,6 +103,12 @@ class _AddPasswordScreenState extends ConsumerState<AddPasswordScreen> {
                     labelText: 'Service Name',
                     prefixIcon: Icon(Symbols.label),
                   ),
+                  onChanged: (value) {
+                    final suggestion = suggestServiceUrl(value);
+                    if (suggestion != null && _urlCtrl.text.isEmpty) {
+                      setState(() => _urlCtrl.text = suggestion);
+                    }
+                  },
                   validator: (v) =>
                       v == null || v.isEmpty ? 'Required' : null,
                 ),
@@ -178,23 +189,9 @@ class _AddPasswordScreenState extends ConsumerState<AddPasswordScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  // ignore: deprecated_member_use
+                CategoryDropdown(
                   value: _category,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Symbols.category),
-                  ),
-                  items: _categories
-                      .map(
-                        (c) => DropdownMenuItem(
-                          value: c,
-                          child: Text(
-                              c[0].toUpperCase() + c.substring(1)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) =>
-                      setState(() => _category = v ?? 'personal'),
+                  onChanged: (v) => setState(() => _category = v),
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
@@ -215,3 +212,4 @@ class _AddPasswordScreenState extends ConsumerState<AddPasswordScreen> {
     );
   }
 }
+

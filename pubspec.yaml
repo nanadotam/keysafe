@@ -49,6 +49,8 @@ dependencies:
   archive: ^4.0.9
   flutter_local_notifications: ^17.2.4
   flutter_email_sender: ^7.0.0
+  file_picker: ^8.1.7
+  csv: ^6.0.0
 
 dev_dependencies:
   flutter_test:

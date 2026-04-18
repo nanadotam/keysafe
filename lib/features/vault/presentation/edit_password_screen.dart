@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../domain/vault_entry.dart';
 import '../providers/vault_provider.dart';
+import '../../../core/utils/service_suggestions.dart';
+import '../../../core/widgets/category_dropdown.dart';
 
 class EditPasswordScreen extends ConsumerStatefulWidget {
   final VaultEntry entry;
@@ -27,9 +29,6 @@ class _EditPasswordScreenState
   bool _obscure = true;
   bool _saving = false;
 
-  static const _categories = [
-    'personal', 'social', 'finance', 'email', 'shopping', 'apps', 'wifi',
-  ];
 
   @override
   void initState() {
@@ -111,6 +110,12 @@ class _EditPasswordScreenState
                     labelText: 'Service Name',
                     prefixIcon: Icon(Symbols.label),
                   ),
+                  onChanged: (value) {
+                    final suggestion = suggestServiceUrl(value);
+                    if (suggestion != null && _urlCtrl.text.isEmpty) {
+                      setState(() => _urlCtrl.text = suggestion);
+                    }
+                  },
                   validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 12),
@@ -156,20 +161,16 @@ class _EditPasswordScreenState
                   ),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  // ignore: deprecated_member_use
-                  value: _category,
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    prefixIcon: Icon(Symbols.category),
+                Text(
+                  'Category',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                  items: _categories
-                      .map((c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(c[0].toUpperCase() + c.substring(1)),
-                          ))
-                      .toList(),
-                  onChanged: (v) => setState(() => _category = v ?? 'personal'),
+                ),
+                const SizedBox(height: 8),
+                CategoryDropdown(
+                  value: _category,
+                  onChanged: (v) => setState(() => _category = v),
                 ),
                 const SizedBox(height: 24),
                 FilledButton(

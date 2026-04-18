@@ -16,4 +16,6 @@ abstract class Routes {
   static const profile             = '/profile';
   static const wifi                = '/wifi';
   static const biometricSettings   = '/biometric-settings';
+  static const recentlyDeleted     = '/recently-deleted';
+  static const importVault         = '/import-vault';
 }

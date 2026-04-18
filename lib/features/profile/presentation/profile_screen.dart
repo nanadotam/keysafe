@@ -22,7 +22,12 @@ class ProfileScreen extends ConsumerWidget {
       orElse: () => '',
     );
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go(Routes.home);
+      },
+      child: Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: SafeArea(
         child: RefreshIndicator(
@@ -157,6 +162,7 @@ class ProfileScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

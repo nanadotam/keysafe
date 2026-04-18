@@ -177,12 +177,31 @@ class VaultNotifier extends StateNotifier<AsyncValue<List<VaultEntry>>> {
       state = AsyncValue.data(current.where((e) => e.id != id).toList());
     }
     try {
+      // Soft-delete locally first; the server delete is best-effort.
+      await VaultLocalDb.softDelete(id);
       await _repo.delete(id);
     } catch (e, st) {
       if (mounted) state = AsyncValue.data(current);
       Error.throwWithStackTrace(e, st);
     }
   }
+
+  /// Permanently delete from trash (no server call needed — already deleted).
+  Future<void> permanentlyDelete(String id) async {
+    await VaultLocalDb.permanentlyDelete(id);
+  }
+
+  /// Restore an entry from the trash back to the active vault.
+  Future<void> restore(String id) async {
+    await VaultLocalDb.restore(id);
+    // Reload from local DB so the active vault state is updated.
+    final restored = await VaultLocalDb.getAll();
+    if (mounted) state = AsyncValue.data(restored);
+  }
+
+  /// Returns all soft-deleted entries.
+  Future<List<({VaultEntry entry, DateTime deletedAt})>>
+      getDeletedEntries() => VaultLocalDb.getDeleted();
 
   // ── Filtering / search (in-memory, no re-fetch) ───────────────────────────
 

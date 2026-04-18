@@ -63,7 +63,12 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen>
     final theme      = Theme.of(context);
     final vaultState = ref.watch(vaultProvider);
 
-    return vaultState.when(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go(Routes.home);
+      },
+      child: vaultState.when(
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
@@ -327,6 +332,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen>
             ),
           );
         },
+      ),
       ),
     );
   }
