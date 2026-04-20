@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../data/login_history_db.dart';
+import '../data/login_history_repository.dart';
 import '../domain/login_event.dart';
 import '../../../core/theme/app_colors.dart';
 
-class LoginHistoryScreen extends StatefulWidget {
+class LoginHistoryScreen extends ConsumerStatefulWidget {
   const LoginHistoryScreen({super.key});
 
   @override
-  State<LoginHistoryScreen> createState() => _LoginHistoryScreenState();
+  ConsumerState<LoginHistoryScreen> createState() => _LoginHistoryScreenState();
 }
 
-class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
+class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
   List<LoginEvent> _events = [];
   bool _loading = true;
 
@@ -25,23 +26,26 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final events = await LoginHistoryDb.instance.getAll();
+    final repo   = ref.read(loginHistoryRepositoryProvider);
+    final events = await repo.fetchAll();
     if (mounted) setState(() { _events = events; _loading = false; });
   }
 
   Future<void> _toggleTrust(LoginEvent event) async {
     if (event.id == null) return;
-    await LoginHistoryDb.instance.setTrusted(
-      event.id!,
-      trusted: !event.isTrusted,
-    );
-    await _load();
+    try {
+      await ref.read(loginHistoryRepositoryProvider)
+          .setTrusted(event.id!, trusted: !event.isTrusted);
+      await _load();
+    } catch (_) {}
   }
 
   Future<void> _delete(LoginEvent event) async {
     if (event.id == null) return;
-    await LoginHistoryDb.instance.delete(event.id!);
-    await _load();
+    try {
+      await ref.read(loginHistoryRepositoryProvider).deleteEntry(event.id!);
+      await _load();
+    } catch (_) {}
   }
 
   Future<void> _clearAll() async {
@@ -66,7 +70,9 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
       ),
     );
     if (confirmed == true) {
-      await LoginHistoryDb.instance.clearAll();
+      try {
+        await ref.read(loginHistoryRepositoryProvider).clearAll();
+      } catch (_) {}
       await _load();
     }
   }

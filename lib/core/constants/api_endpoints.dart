@@ -17,7 +17,9 @@ abstract class ApiEndpoints {
   static String wifiEntry(String id) => '/wifi/$id';
 
   // User
-  static const profile = '/user/profile';
+  static const profile       = '/user/profile';
+  static const loginHistory  = '/user/login-history';
+  static String loginHistoryEntry(String id) => '/user/login-history/$id';
 
   // Security
   static const hibpCheck = '/util/hibp-check';

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
 import '../../../core/constants/api_endpoints.dart';
+import '../../../core/services/location_service.dart';
 import '../../../crypto/crypto_service.dart';
 import '../../../crypto/key_store.dart';
 import '../../vault/data/vault_local_db.dart';
@@ -16,30 +17,41 @@ class AuthRepository {
     required String password,
   }) async {
     try {
-      final response = await _dio.post(
-        ApiEndpoints.login,
-        data: {'email': email, 'password': password},
-      );
+      // Capture location in the background — never block login on this.
+      final location = await LocationService.getCurrentLocation();
+
+      final body = <String, dynamic>{'email': email, 'password': password};
+      if (location != null) {
+        body['latitude']  = location.latitude;
+        body['longitude'] = location.longitude;
+        if (location.city    != null) body['city']    = location.city;
+        if (location.country != null) body['country'] = location.country;
+      }
+
+      final response = await _dio.post(ApiEndpoints.login, data: body);
       final data = response.data as Map<String, dynamic>;
-      final userId      = data['user_id'] as String;
+      final userId       = data['user_id'] as String;
       final accessToken  = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
-      final name         = (data['name'] as String?) ?? email.split('@').first;
+      final user         = data['user'] as Map<String, dynamic>? ?? {};
+      final firstName    = user['first_name'] as String?;
+      final lastName     = user['last_name'] as String?;
+      final name = (firstName != null && firstName.isNotEmpty)
+          ? '$firstName${lastName != null ? ' $lastName' : ''}'.trim()
+          : (data['name'] as String?) ?? email.split('@').first;
 
-      await KeyStore.storeTokens(
-        accessToken: accessToken,
-        refreshToken: refreshToken,
+      await KeyStore.storeTokens(accessToken: accessToken, refreshToken: refreshToken);
+      await KeyStore.storeUserInfo(
+        userId: userId,
+        email: email,
+        displayName: name,
+        firstName: firstName,
+        lastName: lastName,
       );
-      await KeyStore.storeUserInfo(userId: userId, email: email, displayName: name);
 
-      final aesKey = CryptoService.deriveKey(
-        masterPassword: password,
-        salt: userId,
-      );
+      final aesKey = CryptoService.deriveKey(masterPassword: password, salt: userId);
       await KeyStore.storeAesKey(aesKey);
 
-      // Store a sha-256 hash of the master password so the lock screen
-      // can verify the password locally without a network round-trip.
       final hash = base64Encode(
         crypto.sha256.convert(utf8.encode(password + userId)).bytes,
       );
@@ -55,28 +67,35 @@ class AuthRepository {
   Future<({String userId, String email, String name})> register({
     required String email,
     required String password,
-    required String name,
+    required String firstName,
+    required String lastName,
   }) async {
     try {
       final response = await _dio.post(
         ApiEndpoints.register,
-        data: {'email': email, 'password': password, 'name': name},
+        data: {
+          'email':      email,
+          'password':   password,
+          'first_name': firstName,
+          'last_name':  lastName,
+        },
       );
       final data = response.data as Map<String, dynamic>;
-      final userId      = data['user_id'] as String;
+      final userId       = data['user_id'] as String;
       final accessToken  = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
+      final displayName  = '$firstName${lastName.isNotEmpty ? ' $lastName' : ''}'.trim();
 
-      await KeyStore.storeTokens(
-        accessToken: accessToken,
-        refreshToken: refreshToken,
+      await KeyStore.storeTokens(accessToken: accessToken, refreshToken: refreshToken);
+      await KeyStore.storeUserInfo(
+        userId: userId,
+        email: email,
+        displayName: displayName,
+        firstName: firstName,
+        lastName: lastName,
       );
-      await KeyStore.storeUserInfo(userId: userId, email: email, displayName: name);
 
-      final aesKey = CryptoService.deriveKey(
-        masterPassword: password,
-        salt: userId,
-      );
+      final aesKey = CryptoService.deriveKey(masterPassword: password, salt: userId);
       await KeyStore.storeAesKey(aesKey);
 
       final hash = base64Encode(
@@ -85,7 +104,7 @@ class AuthRepository {
       await KeyStore.storeMasterPasswordHash(hash);
       await KeyStore.setOnboardingSeen(true);
 
-      return (userId: userId, email: email, name: name);
+      return (userId: userId, email: email, name: displayName);
     } on DioException catch (e) {
       throw _mapError(e);
     }

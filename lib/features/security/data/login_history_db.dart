@@ -39,7 +39,7 @@ class LoginHistoryDb {
 
   Future<int> insert(LoginEvent event) async {
     final db = await _database;
-    return db.insert('login_events', event.toMap());
+    return db.insert('login_events', event.toLocalMap());
   }
 
   Future<List<LoginEvent>> getAll({int limit = 50}) async {
@@ -49,22 +49,22 @@ class LoginHistoryDb {
       orderBy: 'timestamp DESC',
       limit: limit,
     );
-    return rows.map(LoginEvent.fromMap).toList();
+    return rows.map(LoginEvent.fromLocalMap).toList();
   }
 
-  Future<void> setTrusted(int id, {required bool trusted}) async {
+  Future<void> setTrusted(String id, {required bool trusted}) async {
     final db = await _database;
     await db.update(
       'login_events',
       {'is_trusted': trusted ? 1 : 0},
       where: 'id = ?',
-      whereArgs: [id],
+      whereArgs: [int.tryParse(id) ?? id],
     );
   }
 
-  Future<void> delete(int id) async {
+  Future<void> delete(String id) async {
     final db = await _database;
-    await db.delete('login_events', where: 'id = ?', whereArgs: [id]);
+    await db.delete('login_events', where: 'id = ?', whereArgs: [int.tryParse(id) ?? id]);
   }
 
   Future<void> clearAll() async {

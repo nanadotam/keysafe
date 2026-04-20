@@ -33,6 +33,8 @@ class _RecentlyDeletedScreenState
 
   Future<void> _restore(String id) async {
     await ref.read(vaultProvider.notifier).restore(id);
+    // Force home screen list to reflect the restored entry.
+    await ref.read(vaultProvider.notifier).reloadFromLocal();
     await _load();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

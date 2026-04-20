@@ -78,9 +78,9 @@ class CategoryDropdown extends ConsumerWidget {
       ),
     );
     ctrl.dispose();
-    if (name != null && name.trim().isNotEmpty) {
-      await ref.read(categoriesProvider.notifier).addCategory(name);
-      onChanged(name.trim().toLowerCase());
+    if (name != null && name.trim().isNotEmpty && context.mounted) {
+      await ref.read(categoriesProvider.notifier).addCategory(name.trim());
+      if (context.mounted) onChanged(name.trim().toLowerCase());
     }
   }
 }

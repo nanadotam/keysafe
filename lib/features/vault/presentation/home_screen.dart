@@ -21,8 +21,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _selectedCategory = 'all';
   String _searchQuery = '';
   final _searchController = SearchController();
-  DateTime? _lastBackPress;
-
   static const _categories = [
     'all',
     'social',
@@ -71,42 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final theme = Theme.of(context);
     final vaultState = ref.watch(vaultProvider);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
-        final now = DateTime.now();
-        if (_lastBackPress != null &&
-            now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
-          final exit = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Exit KeySafe?'),
-              content: const Text('Are you sure you want to exit the app?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Stay'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Exit'),
-                ),
-              ],
-            ),
-          );
-          if (exit == true) SystemNavigator.pop();
-        } else {
-          _lastBackPress = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Press back again to exit'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
       body: RefreshIndicator(
         onRefresh: () => ref.read(vaultProvider.notifier).refresh(),
         child: CustomScrollView(
@@ -251,7 +214,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         },
         child: const Icon(Symbols.add),
       ),
-    ),
     );
   }
 }

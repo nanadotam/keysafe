@@ -26,6 +26,7 @@ class _AddPasswordScreenState extends ConsumerState<AddPasswordScreen> {
   String _category = 'personal';
   bool _obscure = true;
   bool _saving = false;
+  bool _urlAutoFilled = false;
 
   @override
   void initState() {
@@ -105,8 +106,12 @@ class _AddPasswordScreenState extends ConsumerState<AddPasswordScreen> {
                   ),
                   onChanged: (value) {
                     final suggestion = suggestServiceUrl(value);
-                    if (suggestion != null && _urlCtrl.text.isEmpty) {
-                      setState(() => _urlCtrl.text = suggestion);
+                    if (suggestion != null &&
+                        (_urlCtrl.text.isEmpty || _urlAutoFilled)) {
+                      setState(() {
+                        _urlCtrl.text = suggestion;
+                        _urlAutoFilled = true;
+                      });
                     }
                   },
                   validator: (v) =>
@@ -170,6 +175,7 @@ class _AddPasswordScreenState extends ConsumerState<AddPasswordScreen> {
                     labelText: 'Website URL (optional)',
                     prefixIcon: Icon(Symbols.link),
                   ),
+                  onChanged: (_) => _urlAutoFilled = false,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(

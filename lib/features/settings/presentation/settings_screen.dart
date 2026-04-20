@@ -419,12 +419,12 @@ class SettingsScreen extends ConsumerWidget {
               'Use this OTP to confirm your vault wipe request: $otp\n\nIf you did not request this, ignore the email draft.',
         ),
       );
-    } catch (error) {
-      if (!context.mounted) {
-        return;
-      }
+    } catch (_) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open email composer: $error')),
+        const SnackBar(
+          content: Text('No email app found. Please set up an email client and try again.'),
+        ),
       );
       return;
     }
@@ -548,10 +548,12 @@ class SettingsScreen extends ConsumerWidget {
               'If you did not request this, ignore this email.',
         ),
       );
-    } catch (e) {
+    } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open email composer: $e')),
+        const SnackBar(
+          content: Text('No email app found. Please set up an email client and try again.'),
+        ),
       );
       return;
     }

@@ -42,7 +42,9 @@ class CategoriesNotifier extends StateNotifier<List<String>> {
     final custom = updated
         .where((c) => !defaultCategories.contains(c))
         .toList();
-    await _storage.write(key: _key, value: jsonEncode(custom));
+    try {
+      await _storage.write(key: _key, value: jsonEncode(custom));
+    } catch (_) {}
   }
 
   Future<void> removeCategory(String name) async {

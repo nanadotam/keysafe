@@ -16,15 +16,17 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
-  final _confirmCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl  = TextEditingController();
+  final _emailCtrl     = TextEditingController();
+  final _passCtrl      = TextEditingController();
+  final _confirmCtrl   = TextEditingController();
   bool _obscure = true;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
     _confirmCtrl.dispose();
@@ -37,7 +39,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     await ref.read(authProvider.notifier).register(
           email: _emailCtrl.text.trim(),
           password: _passCtrl.text,
-          name: _nameCtrl.text.trim(),
+          firstName: _firstNameCtrl.text.trim(),
+          lastName: _lastNameCtrl.text.trim(),
         );
   }
 
@@ -75,15 +78,33 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
-                  controller: _nameCtrl,
-                  autofillHints: const [AutofillHints.name],
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Symbols.person),
-                  ),
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'Enter your name' : null,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _firstNameCtrl,
+                        autofillHints: const [AutofillHints.givenName],
+                        decoration: const InputDecoration(
+                          labelText: 'First Name',
+                          prefixIcon: Icon(Symbols.person),
+                        ),
+                        validator: (v) =>
+                            v == null || v.trim().isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _lastNameCtrl,
+                        autofillHints: const [AutofillHints.familyName],
+                        decoration: const InputDecoration(
+                          labelText: 'Last Name',
+                        ),
+                        validator: (v) =>
+                            v == null || v.trim().isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

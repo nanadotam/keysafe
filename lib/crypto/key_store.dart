@@ -14,6 +14,8 @@ class KeyStore {
   static const _userIdKey             = 'user_id';
   static const _userEmailKey          = 'user_email';
   static const _displayNameKey        = 'display_name';
+  static const _firstNameKey          = 'first_name';
+  static const _lastNameKey           = 'last_name';
   static const _hashedPasswordKey     = 'hashed_master_password';
   static const _biometricEnabledKey   = 'biometric_enabled';
   static const _onboardingSeenKey     = 'onboarding_seen';
@@ -51,6 +53,8 @@ class KeyStore {
     required String userId,
     required String email,
     String? displayName,
+    String? firstName,
+    String? lastName,
   }) async {
     final ops = [
       _storage.write(key: _userIdKey, value: userId),
@@ -59,6 +63,12 @@ class KeyStore {
     if (displayName != null) {
       ops.add(_storage.write(key: _displayNameKey, value: displayName));
     }
+    if (firstName != null) {
+      ops.add(_storage.write(key: _firstNameKey, value: firstName));
+    }
+    if (lastName != null) {
+      ops.add(_storage.write(key: _lastNameKey, value: lastName));
+    }
     await Future.wait(ops);
   }
 
@@ -66,6 +76,8 @@ class KeyStore {
   static Future<String?> getUserEmail() => _storage.read(key: _userEmailKey);
   static Future<String?> getDisplayName() =>
       _storage.read(key: _displayNameKey);
+  static Future<String?> getFirstName() => _storage.read(key: _firstNameKey);
+  static Future<String?> getLastName()  => _storage.read(key: _lastNameKey);
 
   static Future<void> storeDisplayName(String name) =>
       _storage.write(key: _displayNameKey, value: name);

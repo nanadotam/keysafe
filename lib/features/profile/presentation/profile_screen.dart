@@ -57,7 +57,7 @@ class ProfileScreen extends ConsumerWidget {
                       radius: 40,
                       backgroundColor: theme.colorScheme.primaryContainer,
                       child: Text(
-                        _displayInitial(profile.name, profile.email, email),
+                        _displayInitial(profile.displayName, profile.email, email),
                         style: theme.textTheme.displaySmall?.copyWith(
                           color: theme.colorScheme.onPrimaryContainer,
                         ),
@@ -65,7 +65,7 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      profile.name.isEmpty ? 'KeySafe User' : profile.name,
+                      profile.displayName.isEmpty ? 'KeySafe User' : profile.displayName,
                       style: theme.textTheme.titleLarge,
                     ),
                     const SizedBox(height: 4),

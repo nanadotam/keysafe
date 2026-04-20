@@ -194,9 +194,12 @@ class VaultNotifier extends StateNotifier<AsyncValue<List<VaultEntry>>> {
   /// Restore an entry from the trash back to the active vault.
   Future<void> restore(String id) async {
     await VaultLocalDb.restore(id);
-    // Reload from local DB so the active vault state is updated.
-    final restored = await VaultLocalDb.getAll();
-    if (mounted) state = AsyncValue.data(restored);
+    await reloadFromLocal();
+  }
+
+  Future<void> reloadFromLocal() async {
+    final entries = await VaultLocalDb.getAll();
+    if (mounted) state = AsyncValue.data(entries);
   }
 
   /// Returns all soft-deleted entries.

@@ -28,6 +28,7 @@ class _EditPasswordScreenState
   late String _category;
   bool _obscure = true;
   bool _saving = false;
+  bool _urlAutoFilled = false;
 
 
   @override
@@ -112,8 +113,12 @@ class _EditPasswordScreenState
                   ),
                   onChanged: (value) {
                     final suggestion = suggestServiceUrl(value);
-                    if (suggestion != null && _urlCtrl.text.isEmpty) {
-                      setState(() => _urlCtrl.text = suggestion);
+                    if (suggestion != null &&
+                        (_urlCtrl.text.isEmpty || _urlAutoFilled)) {
+                      setState(() {
+                        _urlCtrl.text = suggestion;
+                        _urlAutoFilled = true;
+                      });
                     }
                   },
                   validator: (v) => v == null || v.isEmpty ? 'Required' : null,
@@ -149,6 +154,7 @@ class _EditPasswordScreenState
                     labelText: 'Website URL',
                     prefixIcon: Icon(Symbols.link),
                   ),
+                  onChanged: (_) => _urlAutoFilled = false,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
