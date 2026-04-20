@@ -136,6 +136,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'by Nana Kwaku Amoako',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             ),

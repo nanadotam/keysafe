@@ -236,6 +236,15 @@ class SettingsScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            _sectionHeader(context, 'About'),
+            Card(
+              child: ListTile(
+                leading: const Icon(Symbols.info),
+                title: const Text('KeySafe v1.0.0'),
+                subtitle: const Text('by Nana Kwaku Amoako'),
+              ),
+            ),
           ],
         ),
       ),
