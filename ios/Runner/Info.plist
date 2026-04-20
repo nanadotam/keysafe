@@ -47,5 +47,9 @@
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>KeySafe records your login location to help you identify unauthorised access.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>KeySafe records your login location to help you identify unauthorised access.</string>
 	</dict>
 </plist>

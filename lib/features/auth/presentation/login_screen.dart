@@ -9,7 +9,12 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../providers/auth_provider.dart';
 import '../domain/auth_state.dart';
 import '../../../core/constants/routes.dart';
+import '../../../core/services/location_service.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/settings/app_settings_provider.dart';
 import '../../../crypto/key_store.dart';
+import '../../security/data/login_history_db.dart';
+import '../../security/domain/login_event.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -101,6 +106,74 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
   }
 
+  void _captureLoginLocation() {
+    Future.microtask(() async {
+      try {
+        final location = await LocationService.getCurrentLocation();
+        if (location == null) return;
+
+        final db       = LoginHistoryDb.instance;
+        final trusted  = await db.isLocationTrusted(location.city, location.country);
+
+        await db.insert(LoginEvent(
+          timestamp: DateTime.now(),
+          latitude:  location.latitude,
+          longitude: location.longitude,
+          city:      location.city,
+          country:   location.country,
+          isTrusted: trusted,
+        ));
+
+        if (!trusted) {
+          final settings = ref.read(appSettingsProvider);
+          if (settings.notificationsEnabled) {
+            await NotificationService.showNewLocationLogin(location.displayName);
+          }
+          if (mounted) _showNewLocationDialog(location);
+        }
+      } catch (_) {}
+    });
+  }
+
+  void _showNewLocationDialog(LocationResult location) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.location_on_rounded, size: 32),
+        title: const Text('New Sign-in Location'),
+        content: Text(
+          'You just signed in from\n\n'
+          '${location.displayName}\n\n'
+          'Is this a trusted location?',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Not Now'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              // Mark the most recent event for this location as trusted.
+              final db     = LoginHistoryDb.instance;
+              final events = await db.getAll(limit: 5);
+              final match  = events.where((e) =>
+                  e.city == location.city && e.country == location.country);
+              for (final e in match) {
+                if (e.id != null) {
+                  await db.setTrusted(e.id!, trusted: true);
+                }
+              }
+            },
+            icon: const Icon(Icons.verified_user_rounded, size: 18),
+            label: const Text('Mark Trusted'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (_lockedOut || !_formKey.currentState!.validate()) return;
     HapticFeedback.lightImpact();
@@ -125,10 +198,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authProvider, (_, state) {
       state.when(
-        initial:         () {},
-        loading:         () {},
-        authenticated:   (_, __) => context.go(Routes.home),
-        locked:          () => context.go(Routes.lock),
+        initial:   () {},
+        loading:   () {},
+        authenticated: (_, __) {
+          _captureLoginLocation();
+          context.go(Routes.home);
+        },
+        locked:    () => context.go(Routes.lock),
         unauthenticated: () {},
         error: (msg) {
           _attempts++;

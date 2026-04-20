@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/providers/ambient_theme_provider.dart';
 import '../../vault/providers/vault_provider.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/services/notification_service.dart';
@@ -24,9 +25,9 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final settings = ref.watch(appSettingsProvider);
+    final darkModeConfig = ref.watch(darkModeConfigProvider);
     final biometric = settings.biometricUnlockEnabled;
     final clipboardClear = settings.autoClearClipboardEnabled;
-    final darkMode = settings.themeMode == ThemeMode.dark;
     final notifications = settings.notificationsEnabled;
 
     return PopScope(
@@ -149,16 +150,12 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _sectionHeader(context, 'Appearance'),
             Card(
-              child: SwitchListTile(
-                secondary: const Icon(Symbols.dark_mode),
+              child: ListTile(
+                leading: const Icon(Symbols.dark_mode),
                 title: const Text('Dark Mode'),
-                value: darkMode,
-                onChanged: (v) async {
-                  HapticFeedback.selectionClick();
-                  await ref
-                      .read(appSettingsProvider.notifier)
-                      .setThemeMode(v ? ThemeMode.dark : ThemeMode.light);
-                },
+                subtitle: Text(_darkModeSubtitle(darkModeConfig)),
+                trailing: const Icon(Symbols.chevron_right),
+                onTap: () => context.push(Routes.ambientDarkMode),
               ),
             ),
             const SizedBox(height: 16),
@@ -258,6 +255,15 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _darkModeSubtitle(DarkModeConfig config) {
+    return switch (config.strategy) {
+      DarkModeStrategy.manual    =>
+          config.manualDark ? 'Dark (manual)' : 'Light (manual)',
+      DarkModeStrategy.scheduled => 'Scheduled — tap to configure',
+      DarkModeStrategy.sensor    => 'Ambient sensor — tap to configure',
+    };
   }
 
   String _labelForAutoLock(int seconds) {

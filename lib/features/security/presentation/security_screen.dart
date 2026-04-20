@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../../vault/domain/vault_entry.dart';
+import '../presentation/login_history_screen.dart';
 import '../../vault/providers/vault_provider.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/constants/routes.dart';
@@ -240,6 +241,23 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen>
                                 : null,
                           ),
                         ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ── Login history ─────────────────────────────────────
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Symbols.location_on),
+                        title: const Text('Login History'),
+                        subtitle: const Text(
+                            'View where you have signed in from'),
+                        trailing: const Icon(Symbols.chevron_right),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LoginHistoryScreen(),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),

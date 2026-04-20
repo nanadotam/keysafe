@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
 import 'core/constants/routes.dart';
+import 'core/providers/ambient_theme_provider.dart';
 import 'core/settings/app_settings_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/splash_screen.dart';
@@ -27,6 +28,8 @@ import 'features/profile/presentation/profile_screen.dart';
 import 'features/wifi/presentation/wifi_screen.dart';
 import 'features/vault/presentation/recently_deleted_screen.dart';
 import 'features/vault/presentation/import_vault_screen.dart';
+import 'features/settings/presentation/ambient_dark_mode_screen.dart';
+import 'features/security/presentation/login_history_screen.dart';
 
 final _router = GoRouter(
   initialLocation: Routes.splash,
@@ -81,6 +84,8 @@ final _router = GoRouter(
     GoRoute(path: Routes.biometricSettings, builder: (_, __) => const BiometricSettingsScreen()),
     GoRoute(path: Routes.recentlyDeleted,   builder: (_, __) => const RecentlyDeletedScreen()),
     GoRoute(path: Routes.importVault,       builder: (_, __) => const ImportVaultScreen()),
+    GoRoute(path: Routes.ambientDarkMode,   builder: (_, __) => const AmbientDarkModeScreen()),
+    GoRoute(path: Routes.loginHistory,      builder: (_, __) => const LoginHistoryScreen()),
   ],
 );
 
@@ -159,13 +164,13 @@ class _KeySafeAppState extends ConsumerState<KeySafeApp>
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(appSettingsProvider);
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'KeySafe',
       debugShowCheckedModeBanner: false,
       theme: buildLightTheme(),
       darkTheme: buildDarkTheme(),
-      themeMode: settings.themeMode,
+      themeMode: themeMode,
       routerConfig: _router,
     );
   }

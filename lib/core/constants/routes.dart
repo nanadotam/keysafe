@@ -18,4 +18,6 @@ abstract class Routes {
   static const biometricSettings   = '/biometric-settings';
   static const recentlyDeleted     = '/recently-deleted';
   static const importVault         = '/import-vault';
+  static const ambientDarkMode     = '/ambient-dark-mode';
+  static const loginHistory        = '/login-history';
 }
