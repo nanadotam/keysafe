@@ -46,3 +46,7 @@ app.*.map.json
 docs/HostelHub_Report.docx
 .gitignore
 .skills/
+docs/
+
+docs/KeySafe_Project_Report.docx
+docs/KeySafe_Project_Report.md

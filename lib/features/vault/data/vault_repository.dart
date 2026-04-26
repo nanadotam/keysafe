@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/constants/api_endpoints.dart';
@@ -22,6 +23,7 @@ class VaultRepository {
       await VaultLocalDb.replaceAll(entries);
       return entries;
     } on DioException catch (e) {
+      _logDioError('fetchAll', e);
       if (e.type == DioExceptionType.connectionError ||
           e.type == DioExceptionType.connectionTimeout) {
         return VaultLocalDb.getAll();
@@ -79,6 +81,7 @@ class VaultRepository {
       await VaultLocalDb.upsert(saved);
       return saved;
     } on DioException catch (e) {
+      _logDioError('create', e);
       if (!_isOfflineError(e)) {
         throw _mapError(e);
       }
@@ -145,6 +148,7 @@ class VaultRepository {
       await VaultLocalDb.upsert(saved);
       return saved;
     } on DioException catch (e) {
+      _logDioError('update', e);
       if (!_isOfflineError(e)) {
         throw _mapError(e);
       }
@@ -158,6 +162,7 @@ class VaultRepository {
     try {
       await _dio.delete(ApiEndpoints.vaultEntry(id));
     } on DioException catch (e) {
+      _logDioError('delete', e);
       if (!_isOfflineError(e)) {
         throw _mapError(e);
       }
@@ -174,6 +179,7 @@ class VaultRepository {
       );
       return response.data ?? '';
     } on DioException catch (e) {
+      _logDioError('exportCsv', e);
       throw _mapError(e);
     }
   }
@@ -189,7 +195,8 @@ class VaultRepository {
           case 'create':
             await _dio.post(ApiEndpoints.vault, data: data);
           case 'update':
-            await _dio.put(ApiEndpoints.vaultEntry(data['id'] as String), data: data);
+            await _dio.put(ApiEndpoints.vaultEntry(data['id'] as String),
+                data: data);
           case 'delete':
             await _dio.delete(ApiEndpoints.vaultEntry(data['id'] as String));
         }
@@ -233,5 +240,15 @@ class VaultRepository {
       }
     }
     return null;
+  }
+
+  void _logDioError(String action, DioException e) {
+    developer.log(
+      'Vault $action failed: status=${e.response?.statusCode} '
+      'type=${e.type} path=${e.requestOptions.path} body=${e.response?.data}',
+      name: 'VaultRepository',
+      error: e,
+      stackTrace: e.stackTrace,
+    );
   }
 }

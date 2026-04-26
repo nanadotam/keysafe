@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
@@ -22,25 +23,26 @@ class AuthRepository {
 
       final body = <String, dynamic>{'email': email, 'password': password};
       if (location != null) {
-        body['latitude']  = location.latitude;
+        body['latitude'] = location.latitude;
         body['longitude'] = location.longitude;
-        if (location.city    != null) body['city']    = location.city;
+        if (location.city != null) body['city'] = location.city;
         if (location.country != null) body['country'] = location.country;
       }
 
       final response = await _dio.post(ApiEndpoints.login, data: body);
       final data = response.data as Map<String, dynamic>;
-      final userId       = data['user_id'] as String;
-      final accessToken  = data['access_token'] as String;
+      final userId = data['user_id'] as String;
+      final accessToken = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
-      final user         = data['user'] as Map<String, dynamic>? ?? {};
-      final firstName    = user['first_name'] as String?;
-      final lastName     = user['last_name'] as String?;
+      final user = data['user'] as Map<String, dynamic>? ?? {};
+      final firstName = user['first_name'] as String?;
+      final lastName = user['last_name'] as String?;
       final name = (firstName != null && firstName.isNotEmpty)
           ? '$firstName${lastName != null ? ' $lastName' : ''}'.trim()
           : (data['name'] as String?) ?? email.split('@').first;
 
-      await KeyStore.storeTokens(accessToken: accessToken, refreshToken: refreshToken);
+      await KeyStore.storeTokens(
+          accessToken: accessToken, refreshToken: refreshToken);
       await KeyStore.storeUserInfo(
         userId: userId,
         email: email,
@@ -49,7 +51,8 @@ class AuthRepository {
         lastName: lastName,
       );
 
-      final aesKey = CryptoService.deriveKey(masterPassword: password, salt: userId);
+      final aesKey =
+          CryptoService.deriveKey(masterPassword: password, salt: userId);
       await KeyStore.storeAesKey(aesKey);
 
       final hash = base64Encode(
@@ -60,6 +63,7 @@ class AuthRepository {
 
       return (userId: userId, email: email, name: name);
     } on DioException catch (e) {
+      _logDioError('login', e);
       throw _mapError(e);
     }
   }
@@ -74,19 +78,21 @@ class AuthRepository {
       final response = await _dio.post(
         ApiEndpoints.register,
         data: {
-          'email':      email,
-          'password':   password,
+          'email': email,
+          'password': password,
           'first_name': firstName,
-          'last_name':  lastName,
+          'last_name': lastName,
         },
       );
       final data = response.data as Map<String, dynamic>;
-      final userId       = data['user_id'] as String;
-      final accessToken  = data['access_token'] as String;
+      final userId = data['user_id'] as String;
+      final accessToken = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
-      final displayName  = '$firstName${lastName.isNotEmpty ? ' $lastName' : ''}'.trim();
+      final displayName =
+          '$firstName${lastName.isNotEmpty ? ' $lastName' : ''}'.trim();
 
-      await KeyStore.storeTokens(accessToken: accessToken, refreshToken: refreshToken);
+      await KeyStore.storeTokens(
+          accessToken: accessToken, refreshToken: refreshToken);
       await KeyStore.storeUserInfo(
         userId: userId,
         email: email,
@@ -95,7 +101,8 @@ class AuthRepository {
         lastName: lastName,
       );
 
-      final aesKey = CryptoService.deriveKey(masterPassword: password, salt: userId);
+      final aesKey =
+          CryptoService.deriveKey(masterPassword: password, salt: userId);
       await KeyStore.storeAesKey(aesKey);
 
       final hash = base64Encode(
@@ -106,6 +113,7 @@ class AuthRepository {
 
       return (userId: userId, email: email, name: displayName);
     } on DioException catch (e) {
+      _logDioError('register', e);
       throw _mapError(e);
     }
   }
@@ -138,13 +146,43 @@ class AuthRepository {
       case 429:
         return 'Too many attempts. Please wait before trying again.';
       case 500:
+        final msg = _extractMessage(e)?.toLowerCase();
+        if (msg != null && msg.contains('login failed')) {
+          return 'Incorrect email or password.';
+        }
+        if (msg != null && msg.contains('registration failed')) {
+          return 'Registration failed on the server. Please try again later.';
+        }
         return 'Server error. Please try again later.';
       default:
         if (e.type == DioExceptionType.connectionTimeout ||
-            e.type == DioExceptionType.receiveTimeout) {
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.sendTimeout ||
+            e.type == DioExceptionType.connectionError) {
           return 'Connection timed out. Check your internet.';
         }
         return 'Something went wrong. Please try again.';
     }
+  }
+
+  String? _extractMessage(DioException e) {
+    final body = e.response?.data;
+    if (body is Map<String, dynamic>) {
+      final msg = body['error'] ?? body['message'];
+      if (msg is String && msg.isNotEmpty) {
+        return msg;
+      }
+    }
+    return null;
+  }
+
+  void _logDioError(String action, DioException e) {
+    developer.log(
+      'Auth $action failed: status=${e.response?.statusCode} '
+      'type=${e.type} path=${e.requestOptions.path} body=${e.response?.data}',
+      name: 'AuthRepository',
+      error: e,
+      stackTrace: e.stackTrace,
+    );
   }
 }
