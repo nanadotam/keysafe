@@ -82,13 +82,7 @@ class VaultRepository {
       return saved;
     } on DioException catch (e) {
       _logDioError('create', e);
-      if (!_isOfflineError(e)) {
-        throw _mapError(e);
-      }
-      await VaultLocalDb.addPendingOp(
-        op: 'create',
-        data: entry.toJson(),
-      );
+      await VaultLocalDb.addPendingOp(op: 'create', data: entry.toJson());
       return entry;
     }
   }
@@ -149,9 +143,6 @@ class VaultRepository {
       return saved;
     } on DioException catch (e) {
       _logDioError('update', e);
-      if (!_isOfflineError(e)) {
-        throw _mapError(e);
-      }
       await VaultLocalDb.addPendingOp(op: 'update', data: entry.toJson());
       return entry;
     }
