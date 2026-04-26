@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
 import '../../../core/constants/api_endpoints.dart';
-import '../../../core/services/location_service.dart';
 import '../../../crypto/crypto_service.dart';
 import '../../../crypto/key_store.dart';
 import '../../vault/data/vault_local_db.dart';
@@ -18,17 +17,7 @@ class AuthRepository {
     required String password,
   }) async {
     try {
-      // Capture location in the background — never block login on this.
-      final location = await LocationService.getCurrentLocation();
-
       final body = <String, dynamic>{'email': email, 'password': password};
-      if (location != null) {
-        body['latitude'] = location.latitude;
-        body['longitude'] = location.longitude;
-        if (location.city != null) body['city'] = location.city;
-        if (location.country != null) body['country'] = location.country;
-      }
-
       final response = await _dio.post(ApiEndpoints.login, data: body);
       final data = response.data as Map<String, dynamic>;
       final userId = data['user_id'] as String;
